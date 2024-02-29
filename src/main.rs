@@ -1,5 +1,7 @@
 fn main() {
-    println!("Hello, world!");
+    let x = 1;
+    let item = (x != 0) && ((x & (x - 1)) == 0);
+    println!("{item}");
 }
 
 
