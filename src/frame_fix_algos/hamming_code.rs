@@ -16,39 +16,71 @@
 
 use crate::utils::number_odd;
 
-fn get_redundant_bit_count(frame_len: u32) -> u32 {
+fn get_redundant_bit_count(frame_len: u32) -> usize {
     let mut bit_to_check = 0;
     while 2u32.pow(bit_to_check) < bit_to_check + frame_len + 1 {
         bit_to_check += 1;
     }
-    bit_to_check
+    bit_to_check as usize
 }
-fn encode_frame(mut frame: String) -> String {
-    let mut result_frame = String::new();
+
+fn encode(mut frame: String) -> String {
+    let mut control_bit_sum: usize = 0;
+    // Предварительное заполнение выходного вектора битов
     let redundant_bits = get_redundant_bit_count(frame.len() as u32);
-    let mut result_array = vec![' ';frame.len() + redundant_bits as usize];
+    let mut result_vec = vec!['0';frame.len() + redundant_bits];
 
-    result_array = result_array.iter().enumerate().map(|(index, _)| {
-        if number_odd(index + 1) { '0' } else {frame.remove(0)}
-    }).collect();
+    // Заполнение выходного вектора битами данных
+    for index in 0..result_vec.len() {
+        if (index + 1) & index > 0 {
+            let next_data_bit = frame.remove(0);
+            if next_data_bit == '1' {
+                control_bit_sum ^= index + 1;
+            };
+            result_vec[index] = next_data_bit;
+       };
+    };
 
-    result_frame
+    // Заполнение выходного вектора контрольными битами
+    let mut x = 1;
+    while x <= result_vec.len() {
+        result_vec[x - 1] = if (control_bit_sum & x) > 0 { '1' } else { '0' };
+        x <<= 1;
+    };
+    result_vec.iter().collect()
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::frame_fix_algos::hamming_code::encode_frame;
+    use super::*;
+    #[test]
+    fn frame_encoded_1() {
+        let frame = String::from("101");
+        let result_frame = encode(frame);
+        assert_eq!(
+            String::from("101101"),
+            result_frame
+        );
+    }
 
     #[test]
-    fn frame_encoded() {
-        let frame = String::from("1000001");
-        let result_frame = encode_frame(frame);
+    fn frame_encoded_2() {
+        let frame = String::from("0100010000111101");
+        let result_frame = encode(frame);
         assert_eq!(
-            String::from(""),
+            String::from("100110000100001011101"),
             result_frame
+        );
+    }
+
+    #[test]
+    fn frame_encoded_3(){
+        let frame_2 = String::from("0011111001011000");
+        let result_frame_2 = encode(frame_2);
+        assert_eq!(
+            String::from("100101101110010101000"),
+            result_frame_2
         )
-
-
     }
 }
