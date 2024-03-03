@@ -14,8 +14,6 @@
 // в смысле Хэмминга.
 
 
-use crate::utils::number_odd;
-
 fn get_redundant_bit_count(frame_len: u32) -> usize {
     let mut bit_to_check = 0;
     while 2u32.pow(bit_to_check) < bit_to_check + frame_len + 1 {
@@ -36,8 +34,8 @@ fn encode(mut frame: String) -> String {
             let next_data_bit = frame.remove(0);
             if next_data_bit == '1' {
                 control_bit_sum ^= index + 1;
+                result_vec[index] = next_data_bit;
             };
-            result_vec[index] = next_data_bit;
        };
     };
 
@@ -66,6 +64,16 @@ mod tests {
 
     #[test]
     fn frame_encoded_2() {
+        let frame = String::from("1000001");
+        let result_frame = encode(frame);
+        assert_eq!(
+            String::from("00100001001"),
+            result_frame
+        );
+    }
+
+    #[test]
+    fn frame_encoded_3() {
         let frame = String::from("0100010000111101");
         let result_frame = encode(frame);
         assert_eq!(
@@ -75,12 +83,23 @@ mod tests {
     }
 
     #[test]
-    fn frame_encoded_3(){
+    fn frame_encoded_4(){
         let frame_2 = String::from("0011111001011000");
         let result_frame_2 = encode(frame_2);
         assert_eq!(
-            String::from("100101101110010101000"),
+            String::from("000101101110010011000"),
             result_frame_2
         )
     }
+
+    #[test]
+    fn frame_encoded_5(){
+        let frame_2 = String::from("100100101110001");
+        let result_frame_2 = encode(frame_2);
+        assert_eq!(
+            String::from("11110010001011110001"),
+            result_frame_2
+        )
+    }
+
 }
