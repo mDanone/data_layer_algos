@@ -14,6 +14,8 @@
 // в смысле Хэмминга.
 
 
+use crate::utils::number_odd;
+
 fn get_redundant_bit_count(frame_len: u32) -> usize {
     let mut bit_to_check = 0;
     while 2u32.pow(bit_to_check) < bit_to_check + frame_len + 1 {
@@ -30,7 +32,7 @@ fn encode(mut frame: String) -> String {
 
     // Заполнение выходного вектора битами данных
     for index in 0..result_vec.len() {
-        if (index + 1) & index > 0 {
+        if !number_odd(index + 1) {
             let next_data_bit = frame.remove(0);
             if next_data_bit == '1' {
                 control_bit_sum ^= index + 1;
@@ -46,6 +48,22 @@ fn encode(mut frame: String) -> String {
         x <<= 1;
     };
     result_vec.iter().collect()
+}
+
+
+fn decode(mut frame: String) -> String {
+    let mut control_bit_sum: usize = 0;
+    let mut result_frame = String::new();
+
+    for index in 0..frame.len() {
+        if !number_odd(index + 1){
+            result_frame.push(frame.remove(0));
+        } else {
+            control_bit_sum ^= index + 1;
+            frame.remove(0);
+        }
+    };
+    result_frame
 }
 
 
@@ -84,8 +102,8 @@ mod tests {
 
     #[test]
     fn frame_encoded_4(){
-        let frame_2 = String::from("0011111001011000");
-        let result_frame_2 = encode(frame_2);
+        let frame = String::from("0011111001011000");
+        let result_frame_2 = encode(frame);
         assert_eq!(
             String::from("000101101110010011000"),
             result_frame_2
@@ -94,10 +112,21 @@ mod tests {
 
     #[test]
     fn frame_encoded_5(){
-        let frame_2 = String::from("100100101110001");
-        let result_frame_2 = encode(frame_2);
+        let frame = String::from("100100101110001");
+        let result_frame_2 = encode(frame);
         assert_eq!(
             String::from("11110010001011110001"),
+            result_frame_2
+        )
+    }
+
+
+    #[test]
+    fn frame_decoded_1() {
+        let frame = String::from("11110010001011110001");
+        let result_frame_2 = decode(frame);
+        assert_eq!(
+            String::from("100100101110001"),
             result_frame_2
         )
     }
