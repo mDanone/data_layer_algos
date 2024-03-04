@@ -51,20 +51,46 @@ fn encode(mut frame: String) -> String {
 }
 
 
-fn decode(mut frame: String) -> String {
+fn decode(mut frame: String) -> (String, usize) {
     let mut control_bit_sum: usize = 0;
     let mut result_frame = String::new();
 
     for index in 0..frame.len() {
-        if !number_odd(index + 1){
-            result_frame.push(frame.remove(0));
-        } else {
+        let next_frame_bit = frame.remove(0);
+        if next_frame_bit == '1' {
             control_bit_sum ^= index + 1;
-            frame.remove(0);
+        }
+        if !number_odd(index + 1){
+            result_frame.push(next_frame_bit);
         }
     };
-    result_frame
+
+    if control_bit_sum > 0 {
+        let mut x = 1;
+        let mut control_bit_counter = 0;
+        while x < control_bit_sum {
+            x <<= 1;
+            control_bit_counter += 1;
+        }
+        control_bit_sum -= control_bit_counter;
+    }
+
+    (result_frame, control_bit_sum)
 }
+
+
+fn decode_and_fix(mut frame: String) -> String {
+    let (mut decoded_frame, control_bit_sum) = decode(frame);
+    if control_bit_sum > 0 {
+        if decoded_frame.as_bytes()[control_bit_sum - 1] == '1' as u8 {
+            decoded_frame.replace_range(control_bit_sum-1..control_bit_sum, "0");
+        } else {
+            decoded_frame.replace_range(control_bit_sum-1..control_bit_sum, "1")
+        }
+    };
+    decoded_frame
+}
+
 
 
 #[cfg(test)]
@@ -124,11 +150,42 @@ mod tests {
     #[test]
     fn frame_decoded_1() {
         let frame = String::from("11110010001011110001");
-        let result_frame_2 = decode(frame);
+        let (result_frame_2, control_bit_sum) = decode(frame);
+        assert_eq!(control_bit_sum, 0);
         assert_eq!(
             String::from("100100101110001"),
             result_frame_2
         )
     }
 
+    #[test]
+    fn frame_decoded_2(){
+        let frame = String::from("000101101110010011000");
+        let (result_frame_2, control_bit_sum) = decode(frame);
+        assert_eq!(control_bit_sum, 0);
+        assert_eq!(
+            String::from("0011111001011000"),
+            result_frame_2
+        )
+    }
+
+    #[test]
+    fn frame_decoded_and_fixed(){
+        let frame = String::from("001101101110010011000");
+        let result_frame_2 = decode_and_fix(frame);
+        assert_eq!(
+            String::from("0011111001011000"),
+            result_frame_2
+        )
+    }
+
+    #[test]
+    fn frame_decoded_and_fixed_2(){
+        let frame = String::from("000101101110000011000");
+        let result_frame_2 = decode_and_fix(frame);
+        assert_eq!(
+            String::from("0011111001011000"),
+            result_frame_2
+        )
+    }
 }
