@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(
             frames_with_flags,
             [
-                Vec::from([FLAG, "10001000", "10010010", FLAG]),
+                Vec::from([FLAG, "10001000", "10000010", FLAG]),
                 Vec::from([FLAG, "10101010", "00000010", FLAG]),
                 Vec::from([FLAG, "00010001", "01101010", FLAG])
             ]
