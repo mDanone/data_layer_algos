@@ -79,7 +79,7 @@ fn decode(mut frame: String) -> (String, usize) {
 }
 
 
-fn decode_and_fix(mut frame: String) -> String {
+fn decode_and_fix(frame: String) -> String {
     let (mut decoded_frame, control_bit_sum) = decode(frame);
     if control_bit_sum > 0 {
         if decoded_frame.as_bytes()[control_bit_sum - 1] == '1' as u8 {

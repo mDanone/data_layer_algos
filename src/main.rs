@@ -1,6 +1,7 @@
+
 fn main() {
 
-    let x = 3 ^ 2;
+    let x = '1' as u32 - '0' as u32;
     println!("{x}");
 }
 
