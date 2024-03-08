@@ -2,34 +2,63 @@ use std::collections::VecDeque;
 
 use crate::utils::convert_char_bit_to_int;
 
-fn encode(mut frame: String, registers: &mut VecDeque<char>) -> String {
+
+struct BitSM {
+    registers: VecDeque<char>,
+    current_state: u32
+}
+
+impl BitSM {
+    fn get_first_control_bit(&mut self, next_bit: char) -> u32 {
+        let index_sequence = [1, 2, 4, 5];
+        self.current_state = convert_char_bit_to_int(next_bit);
+        self.sum_control_bits(index_sequence)
+    }
+
+    fn sum_control_bits(&mut self, indexes: [usize; 4]) -> u32{
+        for index in indexes {
+            self.current_state ^= convert_char_bit_to_int(self.registers[index]);
+        }
+        self.current_state
+    }
+
+    fn get_second_control_bit(&mut self, next_bit: char) -> u32 {
+        let index_sequence = [0, 1, 3, 5];
+        self.current_state = convert_char_bit_to_int(next_bit);
+        self.sum_control_bits(index_sequence)
+    }
+
+    fn get_next_control_bits(&mut self, next_data_bit: char) -> (u32, u32){
+        let (first_bit, second_bit) = (
+            self.get_first_control_bit(next_data_bit),
+            self.get_second_control_bit(next_data_bit)
+        );
+        self.registers.pop_back();
+        self.registers.push_front(next_data_bit);
+
+        (first_bit, second_bit)
+    }
+
+    fn get_register_size(&self) -> usize {self.registers.len()}
+}
+
+
+
+fn encode(mut frame: String, bit_sm: &mut BitSM) -> String {
     let mut result_frame = String::new();
 
+    frame.push_str("0".repeat(bit_sm.get_register_size()).as_str());
     while !frame.is_empty() {
-        if let Some(next_bit) = frame.pop() {
-            let (first_control_bit, second_control_bit) = {
-                (
-                    convert_char_bit_to_int(next_bit)
-                        ^ convert_char_bit_to_int(registers[1])
-                        ^ convert_char_bit_to_int(registers[2])
-                        ^ convert_char_bit_to_int(registers[4])
-                        ^ convert_char_bit_to_int(registers[5]),
-                    convert_char_bit_to_int(next_bit)
-                        ^ convert_char_bit_to_int(registers[0])
-                        ^ convert_char_bit_to_int(registers[1])
-                        ^ convert_char_bit_to_int(registers[3])
-                        ^ convert_char_bit_to_int(registers[5]),
-
-               )
-            };
-            registers.pop_back();
-            registers.push_front(next_bit);
+        if let next_bit = frame.remove(0) {
+            let (first_control_bit, second_control_bit) = bit_sm.get_next_control_bits(next_bit);
             result_frame.push_str(format!("{first_control_bit}{second_control_bit}").as_str());
         }
     }
     result_frame
 }
-fn decode(frame: String) -> String {frame}
+fn decode(frame: String) -> String {
+    frame
+}
 
 
 #[cfg(test)]
@@ -40,14 +69,15 @@ mod tests {
     fn frame_encoded_1() {
         let frame = String::from("111");
         let mut registers = VecDeque::from(['0', '0', '0', '0', '0', '0']);
-        let encoded_frame = encode(frame, &mut registers);
+        let mut bit_sm = BitSM {registers, current_state: 0};
+        let encoded_frame = encode(frame, &mut bit_sm);
         assert_eq!(
             encoded_frame,
-            "111001"
+            "111001000001000111"
         );
         assert_eq!(
-            registers,
-            VecDeque::from(['1', '1', '1', '0', '0', '0'])
+            bit_sm.registers,
+            VecDeque::from(['0', '0', '0', '0', '0', '0'])
         );
     }
 

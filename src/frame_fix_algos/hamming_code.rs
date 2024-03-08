@@ -30,6 +30,7 @@ fn encode(mut frame: String) -> String {
     let redundant_bits = get_redundant_bit_count(frame.len() as u32);
     let mut result_vec = vec!['0';frame.len() + redundant_bits];
 
+
     // Заполнение выходного вектора битами данных
     for index in 0..result_vec.len() {
         if !number_odd(index + 1) {
