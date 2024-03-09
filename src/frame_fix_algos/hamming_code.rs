@@ -14,7 +14,7 @@
 // в смысле Хэмминга.
 
 
-use crate::utils::number_odd;
+use crate::utils::power_of_two;
 
 fn get_redundant_bit_count(frame_len: u32) -> usize {
     let mut bit_to_check = 0;
@@ -30,10 +30,9 @@ fn encode(mut frame: String) -> String {
     let redundant_bits = get_redundant_bit_count(frame.len() as u32);
     let mut result_vec = vec!['0';frame.len() + redundant_bits];
 
-
     // Заполнение выходного вектора битами данных
     for index in 0..result_vec.len() {
-        if !number_odd(index + 1) {
+        if !power_of_two(index + 1) {
             let next_data_bit = frame.remove(0);
             if next_data_bit == '1' {
                 control_bit_sum ^= index + 1;
@@ -52,19 +51,27 @@ fn encode(mut frame: String) -> String {
 }
 
 
-fn decode(mut frame: String) -> (String, usize) {
+fn decode(frame: String) -> (String, usize) {
     let mut control_bit_sum: usize = 0;
     let mut result_frame = String::new();
-
     for index in 0..frame.len() {
-        let next_frame_bit = frame.remove(0);
+        let next_frame_bit = frame.as_bytes()[index] as char;
         if next_frame_bit == '1' {
             control_bit_sum ^= index + 1;
         }
-        if !number_odd(index + 1){
+        if !power_of_two(index + 1){
             result_frame.push(next_frame_bit);
         }
     };
+
+    let encoded_frame = encode(result_frame.clone());
+    for index in 0..frame.len() {
+        if power_of_two(index + 1) {
+            if encoded_frame.as_bytes()[index] != frame.as_bytes()[index] {
+                return (result_frame, 0);
+            }
+        }
+    }
 
     if control_bit_sum > 0 {
         let mut x = 1;
@@ -187,5 +194,15 @@ mod tests {
             String::from("0011111001011000"),
             result_frame_2
         )
+    }
+
+    #[test]
+    fn frame_decoded_and_fixed_5() {
+        let frame = String::from("000110000100001011101");
+        let result_frame = decode_and_fix(frame);
+        assert_eq!(
+            String::from("0100010000111101"),
+            result_frame
+        );
     }
 }

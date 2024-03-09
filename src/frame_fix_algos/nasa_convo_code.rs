@@ -49,10 +49,8 @@ fn encode(mut frame: String, bit_sm: &mut BitSM) -> String {
 
     frame.push_str("0".repeat(bit_sm.get_register_size()).as_str());
     while !frame.is_empty() {
-        if let next_bit = frame.remove(0) {
-            let (first_control_bit, second_control_bit) = bit_sm.get_next_control_bits(next_bit);
-            result_frame.push_str(format!("{first_control_bit}{second_control_bit}").as_str());
-        }
+        let (first_control_bit, second_control_bit) = bit_sm.get_next_control_bits(frame.remove(0));
+        result_frame.push_str(format!("{first_control_bit}{second_control_bit}").as_str());
     }
     result_frame
 }
@@ -68,7 +66,7 @@ mod tests {
     #[test]
     fn frame_encoded_1() {
         let frame = String::from("111");
-        let mut registers = VecDeque::from(['0', '0', '0', '0', '0', '0']);
+        let registers = VecDeque::from(['0', '0', '0', '0', '0', '0']);
         let mut bit_sm = BitSM {registers, current_state: 0};
         let encoded_frame = encode(frame, &mut bit_sm);
         assert_eq!(

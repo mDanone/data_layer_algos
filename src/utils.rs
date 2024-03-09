@@ -1,4 +1,4 @@
-pub fn number_odd(number: usize) -> bool{
+pub fn power_of_two(number: usize) -> bool{
     (number != 0) && ((number & (number - 1)) == 0)
 }
 
