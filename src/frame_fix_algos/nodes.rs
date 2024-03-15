@@ -26,6 +26,7 @@ impl Tree {
             }
             current_node
         };
+
         match current_node {
             Some(val) => val,
             None => self.root.clone()
