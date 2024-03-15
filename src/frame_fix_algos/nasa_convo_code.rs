@@ -2,7 +2,7 @@ use std::cell::{RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::utils::convert_char_bit_to_int;
+use crate::utils::{binary_to_decimal, convert_char_bit_to_int};
 use crate::frame_fix_algos::nodes::{Tree, TreeNode};
 
 
@@ -39,12 +39,12 @@ impl BitSM {
     }
 
 
-    fn get_first_control_bit(&self, next_bit: char, state: &String) -> u32 {
+    fn get_first_control_bit(&self, next_bit: char, state: &String) -> usize {
         let index_sequence = [1, 2, 4, 5];
         self.sum_control_bits(index_sequence, next_bit, &state)
     }
 
-    fn sum_control_bits(&self, indexes: [usize; 4], next_bit: char, state: &String) -> u32 {
+    fn sum_control_bits(&self, indexes: [usize; 4], next_bit: char, state: &String) -> usize {
         let mut transition = 0;
         transition ^= convert_char_bit_to_int(next_bit);
         for index in indexes {
@@ -54,12 +54,12 @@ impl BitSM {
         transition
     }
 
-    fn get_second_control_bit(&self, next_bit: char, state: &String) -> u32 {
+    fn get_second_control_bit(&self, next_bit: char, state: &String) -> usize {
         let index_sequence = [0, 1, 2, 5];
         self.sum_control_bits(index_sequence, next_bit, state)
     }
 
-    fn get_next_control_bits(&self, next_bit: char, state: &String) -> (u32, u32) {
+    fn get_next_control_bits(&self, next_bit: char, state: &String) -> (usize, usize) {
         let (first_bit, second_bit) = (
             self.get_first_control_bit(next_bit, &state),
             self.get_second_control_bit(next_bit, &state)
@@ -103,41 +103,56 @@ fn decode(frame: String, states_map: &HashMap<String, HashMap<String, String>>) 
     ).collect::<Vec<Tree>>();
 
     for index in (0..frame.len()).step_by(2) {
-        let _current_transition_bits = &frame[index..index+2];
+        let current_transition_bits = &frame[index..index+2];
         for (key, next_states) in states_map {
             for tree in &trees {
                 let extreme_node = tree.get_extreme_node().clone();
+                let mut borrowed_node = extreme_node.borrow_mut();
 
-                if let Some(_transition_bits) = next_states.get(&extreme_node.borrow().state) {
-                    extreme_node.borrow_mut().sum_hd = 0; // TODO: Need to add transition_bits ^ current_transition_bits
-                    if extreme_node.borrow().left.is_none() {
-                        extreme_node.borrow_mut().left = Some(Rc::new(RefCell::new(TreeNode::new(extreme_node.borrow().sum_hd, key.clone()))));
+                if let Some(transition_bits) = next_states.get(&borrowed_node.state) {
+                    let exclusive_or = {
+                        binary_to_decimal(transition_bits) ^ binary_to_decimal(current_transition_bits)
+                    };
+                    borrowed_node.sum_hd += exclusive_or.count_ones() as usize;
+                    if borrowed_node.left.is_none() {
+                        borrowed_node.left = Some(Rc::new(RefCell::new(TreeNode::new(borrowed_node.sum_hd, key.clone()))));
                     }
-                    if extreme_node.borrow().right.is_none() {
-                        extreme_node.borrow_mut().right = Some(Rc::new(RefCell::new(TreeNode::new(extreme_node.borrow().sum_hd, key.clone()))))
+                    if borrowed_node.right.is_none() {
+                        borrowed_node.right = Some(Rc::new(RefCell::new(TreeNode::new(borrowed_node.sum_hd, key.clone()))))
                     }
                 }
 
                 if let (
                     Some(left_node),
                     Some(right_node)
-                ) = (extreme_node.borrow().left.clone(), extreme_node.borrow().right.clone()){
+                ) = (borrowed_node.left.clone(), borrowed_node.right.clone()){
                     let left_borrowed = left_node.borrow();
                     let right_borrowed = right_node.borrow();
                     if left_borrowed.sum_hd < right_borrowed.sum_hd {
-                        extreme_node.borrow_mut().right = None;
+                        borrowed_node.right = None;
                     } else {
-                        extreme_node.borrow_mut().left = None;
+                        borrowed_node.left = None;
                     }
                 };
-
             }
-
         }
     }
-    // for node in all_nodes {
-    //     for (key, value) in
-    // }
+
+    // let min_tree = trees.into_iter().reduce(
+    //     |first_tree, second_tree| {
+    //         let first_extreme_node = first_tree.get_extreme_node();
+    //         let second_extreme_node = second_tree.get_extreme_node();
+    //         if first_extreme_node.borrow().sum_hd > second_extreme_node.borrow().sum_hd {
+    //             first_tree
+    //         } else {
+    //             second_tree
+    //         }
+    //     }
+    // );
+
+    for tree in trees {
+        println!("{:?}", tree);
+    }
     frame
 }
 

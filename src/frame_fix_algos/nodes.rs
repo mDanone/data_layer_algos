@@ -37,7 +37,7 @@ impl Tree {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct TreeNode {
-    pub sum_hd: i32,
+    pub sum_hd: usize,
     pub state: String,
     pub left: Option<Rc<RefCell<TreeNode>>>,
     pub right: Option<Rc<RefCell<TreeNode>>>
@@ -45,7 +45,7 @@ pub struct TreeNode {
 
 
 impl TreeNode {
-    pub fn new(sum_hd: i32, state: String) -> Self {
+    pub fn new(sum_hd: usize, state: String) -> Self {
         TreeNode {
             sum_hd,
             state,
