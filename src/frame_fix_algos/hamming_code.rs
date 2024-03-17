@@ -65,10 +65,12 @@ fn decode(frame: String) -> (String, usize) {
     };
 
     let encoded_frame = encode(result_frame.clone());
-    for index in 0..frame.len() {
-        if power_of_two(index + 1) {
-            if encoded_frame.as_bytes()[index] != frame.as_bytes()[index] {
-                return (result_frame, 0);
+    if power_of_two(control_bit_sum) {
+        for index in 0..frame.len() {
+            if power_of_two(index + 1) {
+                if encoded_frame.as_bytes()[index] != frame.as_bytes()[index] {
+                    return (result_frame, 0);
+                }
             }
         }
     }
