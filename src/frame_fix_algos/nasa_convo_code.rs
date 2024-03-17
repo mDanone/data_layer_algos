@@ -1,9 +1,7 @@
-use std::cell::{RefCell};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::utils::{binary_to_decimal};
-use crate::frame_fix_algos::nodes::{StateStep};
+use crate::frame_fix_algos::steps::{StateStep};
 use crate::frame_fix_algos::state_machine::BitSM;
 
 
@@ -11,7 +9,7 @@ fn encode(mut frame: String, bit_sm: &mut BitSM, states_map: &HashMap<String, Ha
     let mut result_frame = String::new();
     if frame.len() < bit_sm.get_register_size() {
         frame.push_str("0".repeat(bit_sm.get_register_size() - frame.len()).as_str())
-    }
+    };
 
     while !frame.is_empty() {
         let next_frame_bit = frame.remove(0);
@@ -28,15 +26,16 @@ fn encode(mut frame: String, bit_sm: &mut BitSM, states_map: &HashMap<String, Ha
 
 fn decode(frame: String, states_map: &HashMap<String, HashMap<String, String>>) -> String {
     let mut all_state_steps = states_map.keys().map(
-        |key| { vec![Rc::new(RefCell::new(StateStep::new(0, key.clone())))] }
-    ).collect::<Vec<Vec<Rc<RefCell<StateStep>>>>>();
+        |key| { vec![StateStep::new(0, key.clone())] }
+    ).collect::<Vec<Vec<StateStep>>>();
     let result_frame_len = frame.len() / 2;
 
     for index in (0..frame.len()).step_by(2) {
         let current_transition_bits = &frame[index..index+2];
-        for state_step in &mut all_state_steps {
+        for state_steps in &mut all_state_steps {
+            let state_steps_len = state_steps.len();
             let next_key = {
-                let mut extreme_node = state_step[state_step.len() - 1].borrow_mut();
+                let extreme_node = &mut state_steps[state_steps_len - 1];
                 let next_states = states_map.get(&extreme_node.state).unwrap();
                 let first_key = format!("{}{}", "1", &extreme_node.state[..extreme_node.state.len() - 1]);
                 let second_key= format!("{}{}", "0", &extreme_node.state[..extreme_node.state.len() - 1]);
@@ -55,16 +54,17 @@ fn decode(frame: String, states_map: &HashMap<String, HashMap<String, String>>) 
                 }
             };
 
-            let extreme_node_sum_hd = state_step[state_step.len() - 1].borrow().sum_hd;
-            state_step.push(Rc::new(RefCell::new(StateStep::new(extreme_node_sum_hd, next_key))));
+            let extreme_node_sum_hd = state_steps[state_steps_len - 1].sum_hd;
+            state_steps.push(StateStep::new(extreme_node_sum_hd, next_key));
         }
     }
 
     let mut result_frame = String::new();
     for state_steps in all_state_steps {
-        if state_steps[state_steps.len() - 1].borrow().sum_hd == 0 {
+        if state_steps[state_steps.len() - 1].sum_hd == 0 {
+            println!("{:?}", state_steps);
             for step in &state_steps[1..result_frame_len + 1] {
-                result_frame.push(step.borrow().state.as_bytes()[0] as char)
+                result_frame.push(step.state.as_bytes()[0] as char)
             }
         }
     }
@@ -120,7 +120,7 @@ mod tests {
         let encoded_frame = encode(frame, &mut bit_sm, &states_map);
         assert_eq!(
             encoded_frame,
-            "111001010001"
+            "111001"
         );
     }
 

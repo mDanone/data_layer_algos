@@ -1,12 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct StateStep {
     pub sum_hd: usize,
     pub state: String,
-    pub next: Option<Rc<RefCell<StateStep>>>,
 }
 
 
@@ -15,7 +10,6 @@ impl StateStep{
         Self {
             sum_hd,
             state,
-            next: None
         }
     }
 }
