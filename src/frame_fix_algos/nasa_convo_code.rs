@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::utils::{binary_to_decimal, convert_char_bit_to_int};
-use crate::frame_fix_algos::nodes::{Tree, TreeNode};
+use crate::frame_fix_algos::nodes::{StateStep};
 
 
 struct BitSM {
@@ -33,18 +33,18 @@ impl BitSM {
 
             let one_transition = format!("{}{}", "1", key);
             let (first_control_bit, second_control_bit) = self.get_next_control_bits('1', key);
-            val.insert(one_transition[..key.len()].to_string(), format!("{first_control_bit}{second_control_bit}"));
+            val.insert(one_transition[0..key.len()].to_string(), format!("{first_control_bit}{second_control_bit}"));
         }
         empty_states_map
     }
 
 
     fn get_first_control_bit(&self, next_bit: char, state: &String) -> usize {
-        let index_sequence = [1, 2, 4, 5];
+        let index_sequence = vec![1, 2, 4, 5];
         self.sum_control_bits(index_sequence, next_bit, &state)
     }
 
-    fn sum_control_bits(&self, indexes: [usize; 4], next_bit: char, state: &String) -> usize {
+    fn sum_control_bits(&self, indexes: Vec<usize>, next_bit: char, state: &String) -> usize {
         let mut transition = 0;
         transition ^= convert_char_bit_to_int(next_bit);
         for index in indexes {
@@ -55,7 +55,7 @@ impl BitSM {
     }
 
     fn get_second_control_bit(&self, next_bit: char, state: &String) -> usize {
-        let index_sequence = [0, 1, 2, 5];
+        let index_sequence = vec![0, 1, 2, 5];
         self.sum_control_bits(index_sequence, next_bit, state)
     }
 
@@ -82,7 +82,9 @@ impl BitSM {
 
 fn encode(mut frame: String, bit_sm: &mut BitSM, states_map: &HashMap<String, HashMap<String, String>>) -> String {
     let mut result_frame = String::new();
-    println!("{:?}", states_map);
+    if frame.len() < bit_sm.registers.len() {
+        frame.push_str("0".repeat(bit_sm.registers.len() - frame.len()).as_str())
+    }
 
     while !frame.is_empty() {
         let next_frame_bit = frame.remove(0);
@@ -91,69 +93,55 @@ fn encode(mut frame: String, bit_sm: &mut BitSM, states_map: &HashMap<String, Ha
         bit_sm.shift_register(next_frame_bit);
         let next_state = bit_sm.get_current_state();
         let output_bits = current_state_map.get(next_state).unwrap();
-        result_frame = format!("{}{}", output_bits, result_frame);
+        result_frame = format!("{}{}", result_frame, output_bits);
     }
     result_frame
 }
 
 
 fn decode(frame: String, states_map: &HashMap<String, HashMap<String, String>>) -> String {
-    let trees = states_map.keys().map(
-        |key| { Tree::new(Rc::new(RefCell::new(TreeNode::new(0, key.clone())))) }
-    ).collect::<Vec<Tree>>();
+    let mut all_state_steps = states_map.keys().map(
+        |key| { vec![Rc::new(RefCell::new(StateStep::new(0, key.clone())))] }
+    ).collect::<Vec<Vec<Rc<RefCell<StateStep>>>>>();
+    let result_frame_len = frame.len() / 2;
 
     for index in (0..frame.len()).step_by(2) {
         let current_transition_bits = &frame[index..index+2];
-        for (key, next_states) in states_map {
-            for tree in &trees {
-                let extreme_node = tree.get_extreme_node().clone();
-                let mut borrowed_node = extreme_node.borrow_mut();
+        for state_step in &mut all_state_steps {
+            let next_key = {
+                let mut extreme_node = state_step[state_step.len() - 1].borrow_mut();
+                let next_states = states_map.get(&extreme_node.state).unwrap();
+                let first_key = format!("{}{}", "1", &extreme_node.state[..extreme_node.state.len() - 1]);
+                let second_key= format!("{}{}", "0", &extreme_node.state[..extreme_node.state.len() - 1]);
 
-                if let Some(transition_bits) = next_states.get(&borrowed_node.state) {
-                    let exclusive_or = {
-                        binary_to_decimal(transition_bits) ^ binary_to_decimal(current_transition_bits)
-                    };
-                    borrowed_node.sum_hd += exclusive_or.count_ones() as usize;
-                    if borrowed_node.left.is_none() {
-                        borrowed_node.left = Some(Rc::new(RefCell::new(TreeNode::new(borrowed_node.sum_hd, key.clone()))));
-                    }
-                    if borrowed_node.right.is_none() {
-                        borrowed_node.right = Some(Rc::new(RefCell::new(TreeNode::new(borrowed_node.sum_hd, key.clone()))))
-                    }
+                let first_hd = binary_to_decimal(next_states.get(&first_key).unwrap()) ^ binary_to_decimal(current_transition_bits);
+                let second_hd = binary_to_decimal(next_states.get(&second_key).unwrap()) ^ binary_to_decimal(current_transition_bits);
+
+                let first_hd_ones = first_hd.count_ones();
+                let second_hd_ones = second_hd.count_ones();
+                if first_hd_ones < second_hd_ones {
+                    extreme_node.sum_hd += first_hd_ones as usize;
+                    first_key
+                } else {
+                    extreme_node.sum_hd += second_hd_ones as usize;
+                    second_key
                 }
+            };
 
-                if let (
-                    Some(left_node),
-                    Some(right_node)
-                ) = (borrowed_node.left.clone(), borrowed_node.right.clone()){
-                    let left_borrowed = left_node.borrow();
-                    let right_borrowed = right_node.borrow();
-                    if left_borrowed.sum_hd < right_borrowed.sum_hd {
-                        borrowed_node.right = None;
-                    } else {
-                        borrowed_node.left = None;
-                    }
-                };
-            }
+            let extreme_node_sum_hd = state_step[state_step.len() - 1].borrow().sum_hd;
+            state_step.push(Rc::new(RefCell::new(StateStep::new(extreme_node_sum_hd, next_key))));
         }
     }
 
-    // let min_tree = trees.into_iter().reduce(
-    //     |first_tree, second_tree| {
-    //         let first_extreme_node = first_tree.get_extreme_node();
-    //         let second_extreme_node = second_tree.get_extreme_node();
-    //         if first_extreme_node.borrow().sum_hd > second_extreme_node.borrow().sum_hd {
-    //             first_tree
-    //         } else {
-    //             second_tree
-    //         }
-    //     }
-    // );
-
-    for tree in trees {
-        println!("{:?}", tree);
+    let mut result_frame = String::new();
+    for state_steps in all_state_steps {
+        if state_steps[state_steps.len() - 1].borrow().sum_hd == 0 {
+            for step in &state_steps[1..result_frame_len + 1] {
+                result_frame.push(step.borrow().state.as_bytes()[0] as char)
+            }
+        }
     }
-    frame
+    result_frame
 }
 
 
@@ -163,33 +151,95 @@ mod tests {
 
     #[test]
     fn frame_encoded_1() {
+        let frame = String::from("111010111010");
+        let mut bit_sm = BitSM { registers: String::from("000000") };
+        let states_map = bit_sm.states_map();
+        let encoded_frame = encode(frame, &mut bit_sm, &states_map);
+        assert_eq!(
+            encoded_frame,
+            "111001011100010010110000"
+        );
+    }
+
+    #[test]
+    fn frame_encoded_2() {
+        let frame = String::from("0101001101111");
+        let mut bit_sm = BitSM { registers: String::from("000000") };
+        let states_map = bit_sm.states_map();
+        let encoded_frame = encode(frame, &mut bit_sm, &states_map);
+        assert_eq!(
+            encoded_frame,
+            "00110100101110010000011111"
+        );
+    }
+
+    #[test]
+    fn frame_encoded_3() {
+        let frame = String::from("1110110101000011110111001010101010101001001001001101111111101001101010010101010101001001001001010101001010100100110010111110101010010111010");
+        let mut bit_sm = BitSM { registers: String::from("000000") };
+        let states_map = bit_sm.states_map();
+        let encoded_frame = encode(frame, &mut bit_sm, &states_map);
+        assert_eq!(
+            encoded_frame,
+            "11100101111111100110110001110101011001010000001110000101000011001100110011000010100111010111010111100000011111010011110010111001010000101011001010100100001100110011000010100111010111010111011001000011000010101001000000101001111000110011011001000111101101111100001010101001110000"
+        );
+    }
+
+    #[test]
+    fn frame_encoded_4() {
         let frame = String::from("111");
         let mut bit_sm = BitSM { registers: String::from("000000") };
         let states_map = bit_sm.states_map();
         let encoded_frame = encode(frame, &mut bit_sm, &states_map);
-        println!("{}", encoded_frame);
         assert_eq!(
             encoded_frame,
-            "011011"
+            "111001010001"
         );
     }
 
     #[test]
     fn frame_decoded_1() {
-        let frame = String::from("011011");
+        let frame = String::from("111001011100010010110000");
         let bit_sm = BitSM { registers: String::from("000000") };
         let decoded_frame = decode(frame, &bit_sm.states_map());
         assert_eq!(
             decoded_frame,
-            "111"
+            "111010111010"
         );
     }
 
     #[test]
-    fn empty_states_map_build() {
+    fn frame_decoded_2() {
+        let frame = String::from("00110100101110010000011111");
         let bit_sm = BitSM { registers: String::from("000000") };
-
-        let states_map = bit_sm.states_map();
-        println!("{:?}", states_map);
+        let decoded_frame = decode(frame, &bit_sm.states_map());
+        assert_eq!(
+            decoded_frame,
+            "0101001101111"
+        );
     }
+
+    #[test]
+    fn frame_decoded_3() {
+        let frame = String::from("11100101111111100110110001110101011001010000001110000101000011001100110011000010100111010111010111100000011111010011110010111001010000101011001010100100001100110011000010100111010111010111011001000011000010101001000000101001111000110011011001000111101101111100001010101001110000");
+        let bit_sm = BitSM { registers: String::from("000000") };
+        let decoded_frame = decode(frame, &bit_sm.states_map());
+        assert_eq!(
+            decoded_frame,
+            "1110110101000011110111001010101010101001001001001101111111101001101010010101010101001001001001010101001010100100110010111110101010010111010"
+        );
+    }
+
+
+    #[test]
+    fn frame_decoded_4() {
+        let frame = String::from("111001010001");
+        let bit_sm = BitSM { registers: String::from("000000") };
+        let decoded_frame = decode(frame, &bit_sm.states_map());
+        assert_eq!(
+            decoded_frame,
+            "111000"
+        );
+    }
+
 }
