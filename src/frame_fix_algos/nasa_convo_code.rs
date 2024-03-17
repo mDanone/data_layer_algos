@@ -62,7 +62,6 @@ fn decode(frame: String, states_map: &HashMap<String, HashMap<String, String>>) 
     let mut result_frame = String::new();
     for state_steps in all_state_steps {
         if state_steps[state_steps.len() - 1].sum_hd == 0 {
-            println!("{:?}", state_steps);
             for step in &state_steps[1..result_frame_len + 1] {
                 result_frame.push(step.state.as_bytes()[0] as char)
             }
@@ -120,7 +119,7 @@ mod tests {
         let encoded_frame = encode(frame, &mut bit_sm, &states_map);
         assert_eq!(
             encoded_frame,
-            "111001"
+            "111001010001"
         );
     }
 
