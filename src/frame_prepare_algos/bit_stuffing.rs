@@ -13,7 +13,7 @@ fn serialize_frame(mut frame: String) -> String {
     format!("{FLAG}{frame}{FLAG}")
 }
 
-fn serialize_frames<'a>(frames: Vec<String>) -> Vec<String>{
+fn serialize_frames(frames: Vec<String>) -> Vec<String>{
     let mut result_frame = Vec::new();
     for frame in frames.to_owned() {
         result_frame.push(serialize_frame(frame));
